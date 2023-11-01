@@ -1,0 +1,112 @@
+From fa5f5f8f9b2b00b7580cb55f82c17e66e54b438d Mon Sep 17 00:00:00 2001
+From: Jonathon Jongsma <jjongsma@redhat.com>
+Date: Tue, 11 Jan 2022 11:21:39 -0600
+Subject: [PATCH] cli: add 'ioapic.driver' to --features
+
+Add the ability to set the ioapic driver using the --features argument:
+
+    $ virt-install --features ioapic.driver=qemu ...
+
+This results in the following xml:
+
+  <features>
+    ...
+    <ioapic driver="qemu"/>
+  </features>
+
+This is required in order to install a guest with >255 cpus. Such a
+configuration requires an iommu with extended interrupt mode enabled,
+which in turn requires IOMMU interrupt remapping to be enabled, which in
+turn requires a split I/O APIC.
+
+Signed-off-by: Jonathon Jongsma <jjongsma@redhat.com>
+(cherry picked from commit 9766beea0432faad7cded9e0285d05851659020e)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=2037202
+
+Signed-off-by: Jonathon Jongsma <jjongsma@redhat.com>
+---
+ tests/data/cli/compare/virt-install-singleton-config-3.xml | 1 +
+ tests/data/xmlparse/change-guest-out.xml                   | 1 +
+ tests/test_cli.py                                          | 2 +-
+ tests/test_xmlparse.py                                     | 1 +
+ virtinst/cli.py                                            | 1 +
+ virtinst/domain/features.py                                | 1 +
+ 6 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/tests/data/cli/compare/virt-install-singleton-config-3.xml b/tests/data/cli/compare/virt-install-singleton-config-3.xml
+index d2e7a363..a36c7bf2 100644
+--- a/tests/data/cli/compare/virt-install-singleton-config-3.xml
++++ b/tests/data/cli/compare/virt-install-singleton-config-3.xml
+@@ -73,6 +73,7 @@
+     <pvspinlock state="off"/>
+     <smm state="off"/>
+     <vmcoreinfo state="on"/>
++    <ioapic driver="qemu"/>
+   </features>
+   <cpu>
+     <topology sockets="1" cores="3" threads="2"/>
+diff --git a/tests/data/xmlparse/change-guest-out.xml b/tests/data/xmlparse/change-guest-out.xml
+index 17af0826..3faf8783 100644
+--- a/tests/data/xmlparse/change-guest-out.xml
++++ b/tests/data/xmlparse/change-guest-out.xml
+@@ -32,6 +32,7 @@
+       <hidden state="on"/>
+     </kvm>
+     <pvspinlock state="on"/>
++    <ioapic driver="qemu"/>
+   </features>
+   <numatune>
+     <memory nodeset="2,4,6"/>
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index 9f0cdfe9..75a891f0 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -558,7 +558,7 @@ c.add_compare("""
+ --vcpus vcpu.current=3,maxvcpus=4,vcpu.placement=auto
+ --memory hotplugmemorymax=2048,hotplugmemoryslots=2
+ --disk none
+---features apic.eoi=off,hap=on,hyperv.synic.state=on,hyperv.reset.state=off,hyperv.spinlocks.state=on,hyperv.spinlocks.retries=5678,pae=on,pmu.state=on,pvspinlock.state=off,smm.state=off,viridian=on,vmcoreinfo.state=on,vmport.state=off,kvm.hidden.state=on,hyperv.vapic.state=off,hyperv.relaxed.state=off,gic.version=host,kvm.hint-dedicated.state=on
++--features apic.eoi=off,hap=on,hyperv.synic.state=on,hyperv.reset.state=off,hyperv.spinlocks.state=on,hyperv.spinlocks.retries=5678,pae=on,pmu.state=on,pvspinlock.state=off,smm.state=off,viridian=on,vmcoreinfo.state=on,vmport.state=off,kvm.hidden.state=on,hyperv.vapic.state=off,hyperv.relaxed.state=off,gic.version=host,kvm.hint-dedicated.state=on,ioapic.driver=qemu
+ --clock rtc_present=no,pit_present=yes,pit_tickpolicy=catchup,tsc_present=no,platform_present=no,hypervclock_present=no,platform_tickpolicy=foo,hpet_tickpolicy=bar,tsc_tickpolicy=wibble,kvmclock_tickpolicy=wobble,hypervclock_tickpolicy=woo
+ --boot bios.useserial=no,bios.rebootTimeout=60,cmdline=root=/foo,smbios.mode=host,bootmenu.enable=yes,loader_ro=yes,loader.type=rom,loader=/tmp/foo
+ --memorybacking access.mode=shared,source.type=anonymous,hugepages=on
+diff --git a/tests/test_xmlparse.py b/tests/test_xmlparse.py
+index 6d1aaddb..ac2fb38d 100644
+--- a/tests/test_xmlparse.py
++++ b/tests/test_xmlparse.py
+@@ -160,6 +160,7 @@ def testAlterGuest():
+     check("kvm_hidden", None, True)
+     check("pvspinlock", None, True)
+     check("gic_version", None, False)
++    check("ioapic_driver", None, "qemu")
+ 
+     check = _make_checker(guest.cpu)
+     check("match", "exact", "strict")
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index e1a988f9..dbd4a545 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -2777,6 +2777,7 @@ class ParserFeatures(VirtCLIParser):
+ 
+         cls.add_arg("smm.state", "smm", is_onoff=True)
+         cls.add_arg("vmcoreinfo.state", "vmcoreinfo", is_onoff=True)
++        cls.add_arg("ioapic.driver", "ioapic_driver")
+ 
+ 
+ ###################
+diff --git a/virtinst/domain/features.py b/virtinst/domain/features.py
+index 246839f2..7d32edc0 100644
+--- a/virtinst/domain/features.py
++++ b/virtinst/domain/features.py
+@@ -41,6 +41,7 @@ class DomainFeatures(XMLBuilder):
+ 
+     smm = XMLProperty("./smm/@state", is_onoff=True)
+     vmcoreinfo = XMLProperty("./vmcoreinfo/@state", is_onoff=True)
++    ioapic_driver = XMLProperty("./ioapic/@driver")
+ 
+ 
+     ##################
+-- 
+2.34.1
+
