@@ -1,0 +1,77 @@
+From 1822e898d556eb5bb80e5c01386b5ad65db01592 Mon Sep 17 00:00:00 2001
+From: Shalini Chellathurai Saroja <shalini@linux.ibm.com>
+Date: Mon, 31 May 2021 21:54:26 +0200
+Subject: [PATCH] virt-xml: add support for mediated devices
+
+Provide support to add/remove MDEV in a guest domain, which is in
+shut-off or running state (hotplug/unplug). Also support update of
+already existing MDEV device, when the guest domain is in shut-off
+state. Please note that libvirt does not support update of MDEV
+device, when the guest domain is in running state.
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Shalini Chellathurai Saroja <shalini@linux.ibm.com>
+(cherry picked from commit 9363e1e692bb0d01184ecc7991d61c95542f690b)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1995125
+
+Signed-off-by: Jonathon Jongsma <jjongsma@redhat.com>
+---
+ virtinst/nodedev.py | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/virtinst/nodedev.py b/virtinst/nodedev.py
+index 97841794..f54a311c 100644
+--- a/virtinst/nodedev.py
++++ b/virtinst/nodedev.py
+@@ -5,6 +5,7 @@
+ # See the COPYING file in the top-level directory.
+ 
+ import os
++import uuid
+ 
+ from .logger import log
+ from .xmlbuilder import XMLBuilder, XMLProperty, XMLChildProperty
+@@ -25,6 +26,16 @@ def _compare_int(nodedev_val, hostdev_val):
+     return (nodedev_val == hostdev_val or hostdev_val == -1)
+ 
+ 
++def _compare_uuid(nodedev_val, hostdev_val):
++    try:
++        nodedev_val = uuid.UUID(nodedev_val)
++        hostdev_val = uuid.UUID(hostdev_val)
++    except Exception:  # pragma: no cover
++        return -1
++
++    return (nodedev_val == hostdev_val)
++
++
+ class DevNode(XMLBuilder):
+     XML_NAME = "devnode"
+ 
+@@ -82,6 +93,9 @@ class NodeDevice(XMLBuilder):
+     parent = XMLProperty("./parent")
+     device_type = XMLProperty("./capability/@type")
+ 
++    def get_mdev_uuid(self):
++        return self.name[5:].replace('_', '-')
++
+     def compare_to_hostdev(self, hostdev):
+         if self.device_type == "pci":
+             if hostdev.type != "pci":
+@@ -101,6 +115,12 @@ class NodeDevice(XMLBuilder):
+                 _compare_int(self.bus, hostdev.bus) and
+                 _compare_int(self.device, hostdev.device))
+ 
++        if self.device_type == "mdev":
++            if hostdev.type != "mdev":
++                return False
++
++            return _compare_uuid(self.get_mdev_uuid(), hostdev.uuid)
++
+         return False
+ 
+ 
+-- 
+2.31.1
+

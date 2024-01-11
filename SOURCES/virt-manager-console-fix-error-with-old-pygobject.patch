@@ -1,0 +1,50 @@
+From 61e24e595852a552019912b9a9d6884f5012dc6e Mon Sep 17 00:00:00 2001
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Fri, 5 Feb 2021 12:15:46 +0100
+Subject: [PATCH] console: fix error with old pygobject
+
+The code doesn't work as expected. From python documentation:
+
+    x and y
+
+is the same as
+
+    x if not x or y
+
+so in the code if for some reasone `dev` is None the value stored in
+`sensitive` will be None as well.
+
+No the code itself works with pygobject >= 3.31.3 where they allowed
+None as a valid boolean value, but with older versions it will fail
+with this error message:
+
+    TypeError: Argument 1 does not allow None as a value
+
+Resolves: https://github.com/virt-manager/virt-manager/issues/226
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit cf93e2dbff28fe05d6d45364c579f923b157beb1)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=2026987
+
+Signed-off-by: Jonathon Jongsma <jjongsma@redhat.com>
+---
+ virtManager/details/console.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/virtManager/details/console.py b/virtManager/details/console.py
+index c4ed478ed..18f9ddd91 100644
+--- a/virtManager/details/console.py
++++ b/virtManager/details/console.py
+@@ -258,7 +258,7 @@ class _ConsoleMenu:
+ 
+             cb = toggled_cb
+             cbdata = dev
+-            sensitive = dev and not tooltip
++            sensitive = bool(dev and not tooltip)
+ 
+             active = False
+             if oldlabel is None and sensitive:
+-- 
+2.35.1
+

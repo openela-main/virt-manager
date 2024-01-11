@@ -1,0 +1,35 @@
+From 99d841337bab8134c173168cabd93e9b133f6049 Mon Sep 17 00:00:00 2001
+From: Shalini Chellathurai Saroja <shalini@linux.ibm.com>
+Date: Mon, 31 May 2021 21:54:27 +0200
+Subject: [PATCH] hostdev: use method get_mdev_uuid()
+
+Use method get_mdev_uuid() to retrieve the UUID of MDEV node device
+object.
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Shalini Chellathurai Saroja <shalini@linux.ibm.com>
+(cherry picked from commit f87e96d3d40891f1403601abc389c24800ba1069)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1995125
+
+Signed-off-by: Jonathon Jongsma <jjongsma@redhat.com>
+---
+ virtinst/devices/hostdev.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/virtinst/devices/hostdev.py b/virtinst/devices/hostdev.py
+index e8d0fae2..b3717430 100644
+--- a/virtinst/devices/hostdev.py
++++ b/virtinst/devices/hostdev.py
+@@ -78,7 +78,7 @@ class DeviceHostdev(Device):
+                         _("Don't know how to generate nodedev for mdev type id '%s'") %
+                         nodedev.type_id)
+ 
+-            self.uuid = nodedev.name[5:].replace('_', '-')
++            self.uuid = nodedev.get_mdev_uuid()
+ 
+         else:
+             raise ValueError(_("Unknown node device type %s") % nodedev)
+-- 
+2.31.1
+

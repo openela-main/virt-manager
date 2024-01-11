@@ -1,0 +1,33 @@
+From b533019b5776207412ed1aa886d97ead2550695a Mon Sep 17 00:00:00 2001
+From: Cole Robinson <crobinso@redhat.com>
+Date: Sat, 21 Nov 2020 17:17:33 -0500
+Subject: [PATCH] addstorage: Don't pass None to widget.set_active()
+
+Older pygobject can't handle it. Mentioned here:
+https://github.com/virt-manager/virt-manager/issues/188
+
+Signed-off-by: Cole Robinson <crobinso@redhat.com>
+(cherry picked from commit e7222b5058c8874b15fbfd998e5eeb233f571075)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=2026987
+Signed-off-by: Jonathon Jongsma <jjongsma@redhat.com>
+---
+ virtManager/device/addstorage.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/virtManager/device/addstorage.py b/virtManager/device/addstorage.py
+index dee0160c..49d0b693 100644
+--- a/virtManager/device/addstorage.py
++++ b/virtManager/device/addstorage.py
+@@ -310,7 +310,7 @@ class vmmAddStorage(vmmGObjectUI):
+         detect_zeroes = disk.driver_detect_zeroes
+         ro = disk.read_only
+         share = disk.shareable
+-        removable = disk.removable
++        removable = bool(disk.removable)
+         serial = disk.serial
+ 
+         self.set_disk_bus(disk.bus)
+-- 
+2.31.1
+

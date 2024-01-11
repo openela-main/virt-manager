@@ -1,0 +1,112 @@
+From 3e150cab1c478e1ce95f4f1466ecbac0b693e375 Mon Sep 17 00:00:00 2001
+From: Jonathon Jongsma <jjongsma@redhat.com>
+Date: Tue, 26 Oct 2021 14:18:40 -0500
+Subject: [PATCH] Handle new nodedev name for mediated devices
+
+libvirt recently changed the nodedev names for mediated devices due to
+the fact that mdevctl supports defining multiple mediated devices with
+the same UUID as long as only one is active at a time. This means that
+the nodedev name changed from the format 'mdev_$UUID' to the format
+'mdev_$UUID_$PARENT'.
+
+Unfortunately, virt-install was parsing the nodedev name to extract the
+UUID of a mediated device. This fails with the new name format.
+Fortunately, in libvirt 7.3.0, a <uuid> field was added to the xml
+schema for mdev devices, so we can simply use this instead, and fall
+back to the name parsing if it doesn't exist.
+
+Signed-off-by: Jonathon Jongsma <jjongsma@redhat.com>
+(cherry picked from commit 0c146b250384ddddcefd2cc0d76b9e808377ebe5)
+
+https://bugzilla.redhat.com/show_bug.cgi?id=2020241
+
+Signed-off-by: Jonathon Jongsma <jjongsma@redhat.com>
+---
+ tests/data/testdriver/testdriver.xml | 14 ++++++++++++++
+ tests/test_nodedev.py                | 14 ++++++++++++++
+ virtinst/nodedev.py                  |  7 +++++++
+ 3 files changed, 35 insertions(+)
+
+diff --git a/tests/data/testdriver/testdriver.xml b/tests/data/testdriver/testdriver.xml
+index 5875732a..e4880936 100644
+--- a/tests/data/testdriver/testdriver.xml
++++ b/tests/data/testdriver/testdriver.xml
+@@ -3725,4 +3725,18 @@ ba</description>
+   </capability>
+ </device>
+ 
++<device>
++  <name>mdev_35ceae7f_eea5_4f28_b7f3_7b12a3e62d3c_0000_06_00_0</name>
++  <path>/sys/devices/pci0000:00/0000:00:02.0/35ceae7f-eea5-4f28-b7f3-7b12a3e62d3c</path>
++  <parent>pci_0000_06_00_0</parent>
++  <driver>
++    <name>vfio_mdev</name>
++  </driver>
++ <capability type='mdev'>
++    <type id='nvidia-11'/>
++    <iommuGroup number='12'/>
++    <uuid>35ceae7f-eea5-4f28-b7f3-7b12a3e62d3c</uuid>
++  </capability>
++</device>
++
+ </node>
+diff --git a/tests/test_nodedev.py b/tests/test_nodedev.py
+index 79678bc8..41435262 100644
+--- a/tests/test_nodedev.py
++++ b/tests/test_nodedev.py
+@@ -8,6 +8,7 @@
+ import os.path
+ 
+ import pytest
++import libvirt
+ 
+ from virtinst import Guest
+ from virtinst import NodeDevice
+@@ -154,6 +155,19 @@ def testPCIMdev():
+     assert dev.parent == "pci_0000_06_00_0"
+     assert dev.device_type == "mdev"
+     assert dev.type_id == "nvidia-11"
++    assert dev.get_mdev_uuid() == "4b20d080-1b54-4048-85b3-a6a62d165c01"
++
++# libvirt <7.3.0 doesn't support <uuid> in the mdev node device xml
++@pytest.mark.skipif(libvirt.getVersion() < 7003000, reason="libvirt version doesn't support new mdev format")
++def testPCIMdevNewFormat():
++    conn = utils.URIs.open_testdriver_cached()
++    devname = "mdev_35ceae7f_eea5_4f28_b7f3_7b12a3e62d3c_0000_06_00_0"
++    dev = _nodeDevFromName(conn, devname)
++    assert dev.name == devname
++    assert dev.parent == "pci_0000_06_00_0"
++    assert dev.device_type == "mdev"
++    assert dev.type_id == "nvidia-11"
++    assert dev.get_mdev_uuid() == "35ceae7f-eea5-4f28-b7f3-7b12a3e62d3c"
+ 
+ 
+ # NodeDevice 2 Device XML tests
+diff --git a/virtinst/nodedev.py b/virtinst/nodedev.py
+index f54a311c..248723b9 100644
+--- a/virtinst/nodedev.py
++++ b/virtinst/nodedev.py
+@@ -94,6 +94,12 @@ class NodeDevice(XMLBuilder):
+     device_type = XMLProperty("./capability/@type")
+ 
+     def get_mdev_uuid(self):
++        # libvirt 7.3.0 added a <uuid> element to the nodedev xml for mdev
++        # types. For older versions, we unfortunately have to parse the nodedev
++        # name, which uses the format "mdev_$UUID_WITH_UNDERSCORES"
++        if self.uuid is not None:
++            return self.uuid
++
+         return self.name[5:].replace('_', '-')
+ 
+     def compare_to_hostdev(self, hostdev):
+@@ -191,6 +197,7 @@ class NodeDevice(XMLBuilder):
+ 
+     # type='mdev' options
+     type_id = XMLProperty("./capability/type/@id")
++    uuid = XMLProperty("./capability/uuid")
+ 
+ 
+ def _AddressStringToHostdev(conn, addrstr):
+-- 
+2.31.1
+

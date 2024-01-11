@@ -1,0 +1,71 @@
+From c1da35159c20e0d633f6c568bb984311a4fed861 Mon Sep 17 00:00:00 2001
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 14 Sep 2021 17:08:35 +0200
+Subject: [PATCH] cli: introduce --resource fibrechannel.appid option
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 0953e1aea1fd16cd1825c03f3b032c7f12f3322f)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=2011327
+
+Signed-off-by: Jonathon Jongsma <jjongsma@redhat.com>
+---
+ tests/data/cli/compare/virt-install-singleton-config-1.xml | 1 +
+ tests/test_cli.py                                          | 2 +-
+ virtinst/cli.py                                            | 1 +
+ virtinst/domain/resource.py                                | 3 ++-
+ 4 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/tests/data/cli/compare/virt-install-singleton-config-1.xml b/tests/data/cli/compare/virt-install-singleton-config-1.xml
+index 518a0099..b50d806e 100644
+--- a/tests/data/cli/compare/virt-install-singleton-config-1.xml
++++ b/tests/data/cli/compare/virt-install-singleton-config-1.xml
+@@ -19,6 +19,7 @@
+   </numatune>
+   <resource>
+     <partition>/virtualmachines/production</partition>
++    <fibrechannel appid="myapplication"/>
+   </resource>
+   <os>
+     <type arch="x86_64" machine="q35">hvm</type>
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index 5e69a135..5b174933 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -480,7 +480,7 @@ c.add_compare("""
+ --memorybacking hugepages=on
+ --features apic=off
+ --clock offset=localtime
+---resource /virtualmachines/production
++--resource /virtualmachines/production,fibrechannel.appid=myapplication
+ --events on_crash=restart
+ --metadata genid_enable=yes
+ --sysinfo host
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 8e5b13cd..e1a988f9 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -1999,6 +1999,7 @@ class ParserResource(VirtCLIParser):
+     def _init_class(cls, **kwargs):
+         VirtCLIParser._init_class(**kwargs)
+         cls.add_arg("partition", "partition")
++        cls.add_arg("fibrechannel.appid", "fibrechannel_appid", can_comma=True)
+ 
+ 
+ ######################
+diff --git a/virtinst/domain/resource.py b/virtinst/domain/resource.py
+index d0962db9..8ad3df54 100644
+--- a/virtinst/domain/resource.py
++++ b/virtinst/domain/resource.py
+@@ -14,6 +14,7 @@ class DomainResource(XMLBuilder):
+     """
+ 
+     XML_NAME = "resource"
+-    _XML_PROP_ORDER = ["partition"]
++    _XML_PROP_ORDER = ["partition", "fibrechannel_appid"]
+ 
+     partition = XMLProperty("./partition")
++    fibrechannel_appid = XMLProperty("./fibrechannel/@appid")
+-- 
+2.31.1
+
