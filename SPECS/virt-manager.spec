@@ -8,7 +8,7 @@
 
 Name: virt-manager
 Version: 4.1.0
-Release: 4%{?dist}%{?extra_release}
+Release: 5%{?dist}%{?extra_release}
 %global verrel %{version}-%{release}
 
 Summary: Desktop tool for managing virtual machines via libvirt
@@ -25,6 +25,8 @@ Patch4: virt-manager-virtinstall-Fix-the-allocating-disk-size-printed-by-the-pro
 Patch5: virt-manager-virtinstall-Hide-total_size-in-the-progress-bar-if-it-doesn-t-need.patch
 Patch6: virt-manager-virt-install-Recommend-boot-uefi.patch
 Patch7: virt-manager-virt-install-Document-Secure-Boot-setups.patch
+Patch8: virt-manager-tests-Add-more-cloud-init-and-TPM-test-cases.patch
+Patch9: virt-manager-installer-drop-default-TPM-for-cloud-init-install-ph.patch
 
 
 Requires: virt-manager-common = %{verrel}
@@ -190,6 +192,9 @@ git config gc.auto 0
 
 
 %changelog
+* Mon Oct 02 2023 Jonathon Jongsma <jjongsma@redhat.com> - 4.1.0-5
+- On aarch64 the vm will shut off immediately shut off when using virt-install --cloud-init (RHEL-1705)
+
 * Tue Feb 14 2023 Jonathon Jongsma <jjongsma@redhat.com> - 4.1.0-4
 - virt-install: Recommend '--boot uefi' (rhbz#2112154)
 - virt-install: Document Secure Boot setups (rhbz#2112154)
