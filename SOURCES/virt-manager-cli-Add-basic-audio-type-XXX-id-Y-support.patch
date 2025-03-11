@@ -1,0 +1,203 @@
+From a39c0f0ddb75bca67a150e8c914ce94c8d1c6858 Mon Sep 17 00:00:00 2001
+Message-ID: <a39c0f0ddb75bca67a150e8c914ce94c8d1c6858.1737975657.git.phrdina@redhat.com>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 24 Feb 2022 13:47:59 -0500
+Subject: [PATCH] cli: Add basic --audio type=XXX,id=Y support
+
+From: Cole Robinson <crobinso@redhat.com>
+
+Closes: #264
+
+Signed-off-by: Cole Robinson <crobinso@redhat.com>
+(cherry picked from commit cd5c34a3f3ab53be32319af6857efd3c2ac45385)
+
+https://issues.redhat.com/browse/RHEL-17435
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ man/virt-install.rst                             | 10 ++++++++++
+ man/virt-xml.rst                                 |  1 +
+ .../cli/compare/virt-install-many-devices.xml    |  2 ++
+ tests/data/cli/compare/virt-xml-add-audio.xml    | 10 ++++++++++
+ tests/test_cli.py                                |  6 ++++++
+ virtinst/cli.py                                  | 16 ++++++++++++++++
+ virtinst/devices/__init__.py                     |  1 +
+ virtinst/devices/audio.py                        | 12 ++++++++++++
+ virtinst/guest.py                                |  3 ++-
+ 9 files changed, 60 insertions(+), 1 deletion(-)
+ create mode 100644 tests/data/cli/compare/virt-xml-add-audio.xml
+ create mode 100644 virtinst/devices/audio.py
+
+diff --git a/man/virt-install.rst b/man/virt-install.rst
+index 963f95649..bafbf9f1f 100644
+--- a/man/virt-install.rst
++++ b/man/virt-install.rst
+@@ -1561,6 +1561,16 @@ Complete details at https://libvirt.org/formatdomain.html#elementsSound
+ 
+ 
+ 
++``--audio``
++^^^^^^^^^^^
++
++Configure host audio output for the guest's `--sound` hardware.
++
++Use --audio=? to see a list of all available sub options.
++Complete details at https://libvirt.org/formatdomain.html#audio-backends
++
++
++
+ ``--watchdog``
+ ^^^^^^^^^^^^^^
+ 
+diff --git a/man/virt-xml.rst b/man/virt-xml.rst
+index 7ff7ceca7..75c8be860 100644
+--- a/man/virt-xml.rst
++++ b/man/virt-xml.rst
+@@ -235,6 +235,7 @@ XML OPTIONS
+ * ``--hostdev``
+ * ``--filesystem``
+ * ``--sound``
++* ``--audio``
+ * ``--watchdog``
+ * ``--video``
+ * ``--smartcard``
+diff --git a/tests/data/cli/compare/virt-install-many-devices.xml b/tests/data/cli/compare/virt-install-many-devices.xml
+index 3bd756b34..d13ec6fb7 100644
+--- a/tests/data/cli/compare/virt-install-many-devices.xml
++++ b/tests/data/cli/compare/virt-install-many-devices.xml
+@@ -493,6 +493,8 @@
+       <codec type="duplex"/>
+       <codec type="output"/>
+     </sound>
++    <audio type="spice" id="1"/>
++    <audio type="pulseaudio" id="2"/>
+     <video>
+       <model type="cirrus"/>
+     </video>
+diff --git a/tests/data/cli/compare/virt-xml-add-audio.xml b/tests/data/cli/compare/virt-xml-add-audio.xml
+new file mode 100644
+index 000000000..3e491518c
+--- /dev/null
++++ b/tests/data/cli/compare/virt-xml-add-audio.xml
+@@ -0,0 +1,10 @@
++     <vsock model="virtio">
++       <cid auto="no" address="5"/>
++     </vsock>
+++    <audio type="none" id="1"/>
++   </devices>
++   <seclabel type="dynamic" model="selinux" relabel="yes"/>
++   <keywrap>
++
++Domain 'test-for-virtxml' defined successfully.
++Changes will take effect after the domain is fully powered off.
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index 75a891f08..532f456ae 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -694,6 +694,11 @@ source.reservations.managed=no,source.reservations.source.type=unix,source.reser
+ --sound ac97
+ --sound codec0.type=micro,codec1.type=duplex,codec2.type=output
+ 
++
++--audio id=1,type=spice
++--audio id=2,type=pulseaudio
++
++
+ --video cirrus
+ --video model=qxl,vgamem=1,ram=2,vram=3,heads=4,accel3d=yes,vram64=65
+ --video model=qxl,model.vgamem=1,model.ram=2,model.vram=3,model.heads=4,model.acceleration.accel3d=yes,model.vram64=65
+@@ -1299,6 +1304,7 @@ c.add_invalid("--add-device --pm suspend_to_disk=yes")  # --add-device without a
+ c.add_invalid("--remove-device --clock utc")  # --remove-device without a dev
+ c.add_compare("--add-device --host-device usb_device_4b3_4485_noserial", "add-host-device")
+ c.add_compare("--add-device --sound pcspk", "add-sound")
++c.add_compare("--add-device --audio type=none,id=1", "add-audio", predefine_check="7.4.0")
+ c.add_compare("--add-device --disk %(EXISTIMG1)s,bus=virtio,target=vdf", "add-disk-basic")
+ c.add_compare("--add-device --disk %(EXISTIMG1)s", "add-disk-notarget")  # filling in acceptable target
+ c.add_compare("--add-device --disk %(NEWIMG1)s,size=.01", "add-disk-create-storage")
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index dbd4a5452..390c54cd2 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -766,6 +766,10 @@ def add_device_options(devg, sound_back_compat=False):
+         devg.add_argument("--soundhw", action="append", dest="sound",
+             help=argparse.SUPPRESS)
+ 
++    ParserAudio.register()
++    devg.add_argument("--audio", action="append",
++                    help=_("Configure host audio backend for sound devices"))
++
+     ParserWatchdog.register()
+     devg.add_argument("--watchdog", action="append",
+                     help=_("Configure a guest watchdog device"))
+@@ -4305,6 +4309,18 @@ class ParserSound(VirtCLIParser):
+                     find_inst_cb=cls.codec_find_inst_cb)
+ 
+ 
++class ParserAudio(VirtCLIParser):
++    cli_arg_name = "audio"
++    guest_propname = "devices.audio"
++
++    @classmethod
++    def _init_class(cls, **kwargs):
++        VirtCLIParser._init_class(**kwargs)
++
++        cls.add_arg("type", "type")
++        cls.add_arg("id", "id")
++
++
+ #####################
+ # --hostdev parsing #
+ #####################
+diff --git a/virtinst/devices/__init__.py b/virtinst/devices/__init__.py
+index eae4b29bd..60081f603 100644
+--- a/virtinst/devices/__init__.py
++++ b/virtinst/devices/__init__.py
+@@ -4,6 +4,7 @@
+ # See the COPYING file in the top-level directory.
+ 
+ 
++from .audio import DeviceAudio
+ from .char import DeviceChannel, DeviceConsole, DeviceParallel, DeviceSerial
+ from .controller import DeviceController
+ from .device import Device
+diff --git a/virtinst/devices/audio.py b/virtinst/devices/audio.py
+new file mode 100644
+index 000000000..e12975b16
+--- /dev/null
++++ b/virtinst/devices/audio.py
+@@ -0,0 +1,12 @@
++# This work is licensed under the GNU GPLv2 or later.
++# See the COPYING file in the top-level directory.
++
++from .device import Device
++from ..xmlbuilder import XMLProperty
++
++
++class DeviceAudio(Device):
++    XML_NAME = "audio"
++
++    type = XMLProperty("./@type")
++    id = XMLProperty("./@id")
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index 3269f72e3..c53516c6e 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -25,7 +25,7 @@ class _DomainDevices(XMLBuilder):
+     XML_NAME = "devices"
+     _XML_PROP_ORDER = ['disk', 'controller', 'filesystem', 'interface',
+             'smartcard', 'serial', 'parallel', 'console', 'channel',
+-            'input', 'tpm', 'graphics', 'sound', 'video', 'hostdev',
++            'input', 'tpm', 'graphics', 'sound', 'audio', 'video', 'hostdev',
+             'redirdev', 'watchdog', 'memballoon', 'rng', 'panic',
+             'memory', 'vsock', 'iommu']
+ 
+@@ -43,6 +43,7 @@ class _DomainDevices(XMLBuilder):
+     tpm = XMLChildProperty(DeviceTpm)
+     graphics = XMLChildProperty(DeviceGraphics)
+     sound = XMLChildProperty(DeviceSound)
++    audio = XMLChildProperty(DeviceAudio)
+     video = XMLChildProperty(DeviceVideo)
+     hostdev = XMLChildProperty(DeviceHostdev)
+     redirdev = XMLChildProperty(DeviceRedirdev)
+-- 
+2.48.1

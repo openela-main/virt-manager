@@ -1,0 +1,194 @@
+From da2cbdd5b6ff2b3f07eaf14044a59d4aee7db2a7 Mon Sep 17 00:00:00 2001
+Message-ID: <da2cbdd5b6ff2b3f07eaf14044a59d4aee7db2a7.1737975657.git.phrdina@redhat.com>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 18 Sep 2024 12:02:59 -0400
+Subject: [PATCH] virt-xml: Add `--edit --convert-to-vnc`
+
+From: Cole Robinson <crobinso@redhat.com>
+
+This wires up the guest.convert_to_vnc function to command line,
+and documents it.
+
+There's one suboption `qemu-vdagent=on|off`, defaulting to `off`
+
+Signed-off-by: Cole Robinson <crobinso@redhat.com>
+(cherry picked from commit 51c3f1c68736fecd133791e5f057abf43287d447)
+
+Conflicts:
+	tests/test_cli.py
+	virtinst/virtxml.py
+
+https://issues.redhat.com/browse/RHEL-17435
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ man/virt-xml.rst                              | 22 ++++++++++++++++
+ .../virt-xml-convert-to-vnc-vdagent.xml       | 15 +++++++++++
+ .../cli/compare/virt-xml-convert-to-vnc.xml   | 12 +++++++++
+ tests/test_cli.py                             |  6 +++++
+ virtinst/cli.py                               | 26 +++++++++++++++++++
+ virtinst/virtxml.py                           |  7 +++++
+ 6 files changed, 88 insertions(+)
+ create mode 100644 tests/data/cli/compare/virt-xml-convert-to-vnc-vdagent.xml
+ create mode 100644 tests/data/cli/compare/virt-xml-convert-to-vnc.xml
+
+diff --git a/man/virt-xml.rst b/man/virt-xml.rst
+index 75c8be860..298246ca5 100644
+--- a/man/virt-xml.rst
++++ b/man/virt-xml.rst
+@@ -197,6 +197,28 @@ GUEST OS OPTIONS
+     See virt-install(1) documentation for more details about ``--os-variant``
+ 
+ 
++``--convert-to-vnc``
++^^^^^^^^^^^^^^^^^^^^
++
++**Syntax:** ``--convert-to-vnc`` [OPTIONS]
++
++Convert an existing VM to exclusively use a single VNC graphics device.
++
++It will attempt to remove all references to any non-VNC graphics config, like
++Spice. For example:
++
++* ``qxl`` devices will be replaced
++* all ``spicevmc`` and ``spiceport`` devices will be removed
++* spice GL will be converted to ``egl-headless``
++
++Sub options are:
++
++``qemu-vdagent=on|off``
++    Add a ``qemu-vdagent`` device if one is not already configured.
++    This replaces some functionality of the spice vdagent.
++    This defaults to ``off`` but that could change in the future.
++
++
+ XML OPTIONS
+ ===========
+ 
+diff --git a/tests/data/cli/compare/virt-xml-convert-to-vnc-vdagent.xml b/tests/data/cli/compare/virt-xml-convert-to-vnc-vdagent.xml
+new file mode 100644
+index 000000000..45764e132
+--- /dev/null
++++ b/tests/data/cli/compare/virt-xml-convert-to-vnc-vdagent.xml
+@@ -0,0 +1,15 @@
++   <on_reboot>restart</on_reboot>
++   <on_crash>destroy</on_crash>
++   <devices>
+++    <channel type="qemu-vdagent">
+++      <target type="virtio" name="com.redhat.spice.0"/>
+++    </channel>
+++    <graphics type="vnc" port="-1"/>
+++    <video>
+++      <model type="vga"/>
+++    </video>
++   </devices>
++ </domain>
++
++Domain 'test' defined successfully.
++Changes will take effect after the domain is fully powered off.
+diff --git a/tests/data/cli/compare/virt-xml-convert-to-vnc.xml b/tests/data/cli/compare/virt-xml-convert-to-vnc.xml
+new file mode 100644
+index 000000000..a13ee9b51
+--- /dev/null
++++ b/tests/data/cli/compare/virt-xml-convert-to-vnc.xml
+@@ -0,0 +1,12 @@
++   <on_reboot>restart</on_reboot>
++   <on_crash>destroy</on_crash>
++   <devices>
+++    <graphics type="vnc" port="-1"/>
+++    <video>
+++      <model type="vga"/>
+++    </video>
++   </devices>
++ </domain>
++
++Domain 'test' defined successfully.
++Changes will take effect after the domain is fully powered off.
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index 04386f63b..b7241b2a0 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -1222,6 +1222,12 @@ c.add_compare("--print-diff --remove-device --serial 1", "remove-console-dup", i
+ c.add_compare("--connect %(URI-KVM)s test-hyperv-uefi --edit --boot uefi", "hyperv-uefi-collision")
+ c.add_compare("--connect %(URI-KVM)s test-many-devices --edit --cpu host-copy", "edit-cpu-host-copy")
+ 
++# --convert-* tests
++c.add_compare("--connect %(URI-KVM-X86)s --print-diff --define --edit --convert-to-q35", "convert-to-q35", input_file=(_VIRTXMLDIR + "convert-to-q35-win10-in.xml"))
++c.add_compare("--connect %(URI-KVM-X86)s --print-diff --define --edit --convert-to-q35 num_pcie_root_ports=7", "convert-to-q35-numports", input_file=(_VIRTXMLDIR + "convert-to-q35-win10-in.xml"))
++c.add_compare("--connect %(URI-KVM-X86)s test --print-diff --define --edit --convert-to-vnc", "convert-to-vnc")
++c.add_compare("--connect %(URI-KVM-X86)s test --print-diff --define --edit --convert-to-vnc qemu-vdagent=on", "convert-to-vnc-vdagent")
++
+ 
+ c = vixml.add_category("simple edit diff", "test-for-virtxml --edit --print-diff --define")
+ c.add_compare("""--xml ./@foo=bar --xml xpath.delete=./currentMemory --xml ./new/element/test=1""", "edit-xpaths")
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 390c54cd2..5f7bd20c6 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -1303,6 +1303,8 @@ class VirtCLIParser(metaclass=_InitClass):
+     @cli_arg_name: The command line argument this maps to, so
+         "hostdev" for --hostdev
+     """
++    OPTSTR_EMPTY = 1
++
+     guest_propname = None
+     remove_first = None
+     stub_none = True
+@@ -1390,6 +1392,8 @@ class VirtCLIParser(metaclass=_InitClass):
+         self.optstr = optstr
+         self.guest = guest
+         self.editing = editing
++        if self.optstr == self.OPTSTR_EMPTY:
++            self.optstr = ""
+         self.optdict = _parse_optstr_to_dict(self.optstr,
+                 self._virtargs, xmlutil.listify(self.remove_first)[:])
+ 
+@@ -1627,6 +1631,28 @@ def parse_xmlcli(guest, options):
+         guest.add_xml_manual_action(manualaction)
+ 
+ 
++############################
++# --convert-to-vnc parsing #
++############################
++
++class ParserConvertToVNC(VirtCLIParser):
++    cli_arg_name = "convert_to_vnc"
++    supports_clearxml = False
++
++    @classmethod
++    def _virtcli_class_init(cls):
++        VirtCLIParser._virtcli_class_init_common(cls)
++        cls.add_arg("qemu-vdagent", "qemu_vdagent")
++
++    def parse(self, inst):
++        class ConvertToVNCData:
++            qemu_vdagent = None
++
++        inst = ConvertToVNCData()
++        super().parse(inst)
++        self.guest.convert_to_vnc(**inst.__dict__)
++
++
+ ########################
+ # --unattended parsing #
+ ########################
+diff --git a/virtinst/virtxml.py b/virtinst/virtxml.py
+index 640f70a87..46fdf1fe0 100644
+--- a/virtinst/virtxml.py
++++ b/virtinst/virtxml.py
+@@ -396,6 +396,13 @@ def parse_args():
+ 
+     cli.add_os_variant_option(parser, virtinstall=False)
+ 
++    conv = parser.add_argument_group(_("Conversion options"))
++    cli.ParserConvertToVNC.register()
++    conv.add_argument("--convert-to-vnc", nargs="?",
++        const=cli.VirtCLIParser.OPTSTR_EMPTY,
++        help=_("Convert an existing VM to use VNC graphics. "
++               "This removes any remnants of Spice graphics."))
++
+     g = parser.add_argument_group(_("XML options"))
+     cli.add_disk_option(g, editexample=True)
+     cli.add_net_option(g)
+-- 
+2.48.1

@@ -1,0 +1,65 @@
+From 066c261ffb471d0b5319adbdf890eb2b27d55aa9 Mon Sep 17 00:00:00 2001
+Message-ID: <066c261ffb471d0b5319adbdf890eb2b27d55aa9.1737975657.git.phrdina@redhat.com>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 18 Sep 2024 09:57:48 -0400
+Subject: [PATCH] guest: remove spiceport devices when spice is removed
+
+From: Cole Robinson <crobinso@redhat.com>
+
+serial/console type='spiceport' is another spice specific device,
+so remove that too
+
+Signed-off-by: Cole Robinson <crobinso@redhat.com>
+(cherry picked from commit f0078a179d19c7060fa2dbd8868bd3c423cc0202)
+
+https://issues.redhat.com/browse/RHEL-17435
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ .../data/xmlparse/convert-to-vnc-spice-devices-in.xml  | 10 ++++++++++
+ virtinst/guest.py                                      |  6 ++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/tests/data/xmlparse/convert-to-vnc-spice-devices-in.xml b/tests/data/xmlparse/convert-to-vnc-spice-devices-in.xml
+index 8c5c63bdf..f5dff5ed1 100644
+--- a/tests/data/xmlparse/convert-to-vnc-spice-devices-in.xml
++++ b/tests/data/xmlparse/convert-to-vnc-spice-devices-in.xml
+@@ -26,5 +26,15 @@
+     </video>
+     <redirdev bus="usb" type="spicevmc"/>
+     <redirdev bus="usb" type="spicevmc"/>
++    <serial type='spiceport'>
++      <source channel='org.qemu.console.serial.0'/>
++      <target type='isa-serial' port='0'>
++        <model name='isa-serial'/>
++      </target>
++    </serial>
++    <console type='spiceport'>
++      <source channel='org.qemu.console.serial.0'/>
++      <target type='serial' port='0'/>
++    </console>
+   </devices>
+ </domain>
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index 93e71a149..3a80d8dad 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -1139,10 +1139,16 @@ class Guest(XMLBuilder):
+             if redirdev.type == "spicevmc":
+                 self.devices.remove_child(redirdev)
+ 
++    def _remove_spiceport(self):
++        for dev in self.devices.serial + self.devices.console:
++            if dev.type == dev.TYPE_SPICEPORT:
++                self.devices.remove_child(dev)
++
+     def _force_remove_spice_devices(self):
+         self._remove_spice_audio()
+         self._remove_spice_channels()
+         self._remove_spice_usbredir()
++        self._remove_spiceport()
+ 
+     def _remove_spice_devices(self, rmdev):
+         if rmdev.DEVICE_TYPE != "graphics" or self.has_spice():
+-- 
+2.48.1

@@ -1,0 +1,190 @@
+From 834497bf91142335b1ba97a7415fabd08ad55843 Mon Sep 17 00:00:00 2001
+Message-ID: <834497bf91142335b1ba97a7415fabd08ad55843.1737975657.git.phrdina@redhat.com>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 18 Sep 2024 10:36:26 -0400
+Subject: [PATCH] guest: convert_to_vnc: convert video device
+
+From: Cole Robinson <crobinso@redhat.com>
+
+This is mostly about stripping out spice references. All qxl devices
+are converted to app defaults
+
+Signed-off-by: Cole Robinson <crobinso@redhat.com>
+(cherry picked from commit d58299ee6b8fe59b399fde59a4dd684c399c3bbb)
+
+https://issues.redhat.com/browse/RHEL-17435
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ .../xmlparse/convert-to-vnc-empty-out.xml     |  3 +++
+ .../xmlparse/convert-to-vnc-has-vnc-in.xml    |  2 +-
+ .../xmlparse/convert-to-vnc-has-vnc-out.xml   |  2 +-
+ .../convert-to-vnc-spice-devices-in.xml       |  3 +++
+ .../convert-to-vnc-spice-devices-out.xml      |  3 +++
+ .../convert-to-vnc-spice-manyopts-in.xml      |  8 ++++++
+ .../convert-to-vnc-spice-manyopts-out.xml     |  5 ++++
+ virtinst/devices/video.py                     |  1 +
+ virtinst/guest.py                             | 27 +++++++++++++++++++
+ 9 files changed, 52 insertions(+), 2 deletions(-)
+
+diff --git a/tests/data/xmlparse/convert-to-vnc-empty-out.xml b/tests/data/xmlparse/convert-to-vnc-empty-out.xml
+index 8612a6567..54e0353aa 100644
+--- a/tests/data/xmlparse/convert-to-vnc-empty-out.xml
++++ b/tests/data/xmlparse/convert-to-vnc-empty-out.xml
+@@ -9,5 +9,8 @@
+   </os>
+   <devices>
+     <graphics type="vnc" port="-1"/>
++    <video>
++      <model type="vga"/>
++    </video>
+   </devices>
+ </domain>
+diff --git a/tests/data/xmlparse/convert-to-vnc-has-vnc-in.xml b/tests/data/xmlparse/convert-to-vnc-has-vnc-in.xml
+index 29ee53d4c..dd25347fb 100644
+--- a/tests/data/xmlparse/convert-to-vnc-has-vnc-in.xml
++++ b/tests/data/xmlparse/convert-to-vnc-has-vnc-in.xml
+@@ -23,7 +23,7 @@
+     <sound model="ich9"/>
+     <audio type='spice'/>
+     <video>
+-      <model type="virtio"/>
++      <model type="qxl" heads='4' vgamem='1'/>
+     </video>
+     <redirdev bus="usb" type="spicevmc"/>
+     <redirdev bus="usb" type="spicevmc"/>
+diff --git a/tests/data/xmlparse/convert-to-vnc-has-vnc-out.xml b/tests/data/xmlparse/convert-to-vnc-has-vnc-out.xml
+index 113f70a1e..e07163a78 100644
+--- a/tests/data/xmlparse/convert-to-vnc-has-vnc-out.xml
++++ b/tests/data/xmlparse/convert-to-vnc-has-vnc-out.xml
+@@ -16,7 +16,7 @@
+     <graphics type="vnc" port="5907"/>
+     <sound model="ich9"/>
+     <video>
+-      <model type="virtio"/>
++      <model type="vga"/>
+     </video>
+   </devices>
+ </domain>
+diff --git a/tests/data/xmlparse/convert-to-vnc-spice-devices-in.xml b/tests/data/xmlparse/convert-to-vnc-spice-devices-in.xml
+index f5dff5ed1..e57d6377a 100644
+--- a/tests/data/xmlparse/convert-to-vnc-spice-devices-in.xml
++++ b/tests/data/xmlparse/convert-to-vnc-spice-devices-in.xml
+@@ -21,6 +21,9 @@
+     </graphics>
+     <sound model="ich9"/>
+     <audio type='spice'/>
++    <video>
++      <model type="qxl" primary='yes'/>
++    </video>
+     <video>
+       <model type="virtio"/>
+     </video>
+diff --git a/tests/data/xmlparse/convert-to-vnc-spice-devices-out.xml b/tests/data/xmlparse/convert-to-vnc-spice-devices-out.xml
+index cc3fefabe..42aac52c2 100644
+--- a/tests/data/xmlparse/convert-to-vnc-spice-devices-out.xml
++++ b/tests/data/xmlparse/convert-to-vnc-spice-devices-out.xml
+@@ -15,6 +15,9 @@
+   <devices>
+     <graphics type="vnc" port="-1"/>
+     <sound model="ich9"/>
++    <video>
++      <model type="vga"/>
++    </video>
+     <video>
+       <model type="virtio"/>
+     </video>
+diff --git a/tests/data/xmlparse/convert-to-vnc-spice-manyopts-in.xml b/tests/data/xmlparse/convert-to-vnc-spice-manyopts-in.xml
+index ebd20a56d..7c12b6b34 100644
+--- a/tests/data/xmlparse/convert-to-vnc-spice-manyopts-in.xml
++++ b/tests/data/xmlparse/convert-to-vnc-spice-manyopts-in.xml
+@@ -15,6 +15,14 @@
+       <gl enable='yes' rendernode='/dev/my/rendernode'/>
+     </graphics>
+     <graphics type='sdl'/>
++    <video>
++      <model type='virtio'>
++        <acceleration accel3d='yes'/>
++      </model>
++    </video>
++    <video>
++      <model type='qxl'/>
++    </video>
+   </devices>
+ </domain>
+ 
+diff --git a/tests/data/xmlparse/convert-to-vnc-spice-manyopts-out.xml b/tests/data/xmlparse/convert-to-vnc-spice-manyopts-out.xml
+index c98c63830..35b1b771f 100644
+--- a/tests/data/xmlparse/convert-to-vnc-spice-manyopts-out.xml
++++ b/tests/data/xmlparse/convert-to-vnc-spice-manyopts-out.xml
+@@ -13,6 +13,11 @@
+       <listen type="socket" socket="/tmp/spice.sock"/>
+       <listen type="address" address="127.0.0.1"/>
+     </graphics>
++    <video>
++      <model type="virtio" primary="yes">
++        <acceleration accel3d="yes"/>
++      </model>
++    </video>
+     <graphics type="egl-headless">
+       <gl rendernode="/dev/my/rendernode"/>
+     </graphics>
+diff --git a/virtinst/devices/video.py b/virtinst/devices/video.py
+index f93831318..bd68e4738 100644
+--- a/virtinst/devices/video.py
++++ b/virtinst/devices/video.py
+@@ -19,6 +19,7 @@ class DeviceVideo(Device):
+     heads = XMLProperty("./model/@heads", is_int=True)
+     vgamem = XMLProperty("./model/@vgamem", is_int=True)
+     accel3d = XMLProperty("./model/acceleration/@accel3d", is_yesno=True)
++    primary = XMLProperty("./model/@primary", is_yesno=True)
+ 
+ 
+     ##################
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index 3a80d8dad..b0ff87276 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -772,6 +772,32 @@ class Guest(XMLBuilder):
+             dev.add_child(listen)
+         dev.set_defaults(self)
+ 
++    def _convert_to_vnc_video(self):
++        """
++        If there's no video device, add a default one.
++        If there's any qxl device, reset its config to app defaults.
++        """
++        if not self.devices.video:
++            videodev = DeviceVideo(self.conn)
++            videodev.set_defaults(self)
++            self.add_device(videodev)
++            return
++
++        qxl_devs = [v for v in self.devices.video if v.model == "qxl"]
++        if qxl_devs and not any(dev.primary for dev in self.devices.video):
++            # Make sure `primary` flag is set, we need it up ahead
++            self.devices.video[0].primary = True
++
++        for dev in qxl_devs:
++            is_primary = dev.primary
++            dev.clear()
++            dev.set_defaults(self)
++            if not is_primary and dev.model != "virtio":
++                # Device can't be non-primary, so just remove it
++                log.debug("Can't use model=%s for non-primary video device, "
++                          "removing it instead.", dev.model)
++                self.remove_device(dev)
++
+     def convert_to_vnc(self):
+         """
+         Convert existing XML to have one VNC graphics connection.
+@@ -783,6 +809,7 @@ class Guest(XMLBuilder):
+         self._force_remove_spice_devices()
+ 
+         self._convert_to_vnc_graphics()
++        self._convert_to_vnc_video()
+ 
+     def set_defaults(self, _guest):
+         self.set_capabilities_defaults()
+-- 
+2.48.1

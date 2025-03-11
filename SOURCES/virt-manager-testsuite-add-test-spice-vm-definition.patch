@@ -1,0 +1,130 @@
+From 55350d15d86be7ee188a47d62237434593c0da19 Mon Sep 17 00:00:00 2001
+Message-ID: <55350d15d86be7ee188a47d62237434593c0da19.1737975657.git.phrdina@redhat.com>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Mon, 25 Mar 2024 13:25:32 +0100
+Subject: [PATCH] testsuite: add test-spice vm definition
+
+This will test spice related changes. Follow up patches will change this
+behavior to remove spice related devices.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 7a03f3efa8d3b9d6146687bf8f3bf0d3ef39b562)
+
+https://issues.redhat.com/browse/RHEL-17435
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ .../compare/virt-xml-change-spice-to-vnc.xml  | 11 +++++
+ .../virt-xml-remove-spice-graphics.xml        | 14 +++++++
+ tests/data/testdriver/testsuite.xml           | 41 +++++++++++++++++++
+ tests/test_cli.py                             |  4 ++
+ 4 files changed, 70 insertions(+)
+ create mode 100644 tests/data/cli/compare/virt-xml-change-spice-to-vnc.xml
+ create mode 100644 tests/data/cli/compare/virt-xml-remove-spice-graphics.xml
+
+diff --git a/tests/data/cli/compare/virt-xml-change-spice-to-vnc.xml b/tests/data/cli/compare/virt-xml-change-spice-to-vnc.xml
+new file mode 100644
+index 000000000..edc667037
+--- /dev/null
++++ b/tests/data/cli/compare/virt-xml-change-spice-to-vnc.xml
+@@ -0,0 +1,11 @@
++     <channel type="spicevmc">
++       <target type="virtio" name="com.redhat.spice.0"/>
++     </channel>
++-    <graphics type="spice" autoport="yes">
+++    <graphics type="vnc" autoport="yes">
++       <listen type="address"/>
++       <image compression="off"/>
++       <gl enable="no"/>
++
++Domain 'test-spice' defined successfully.
++Changes will take effect after the domain is fully powered off.
+diff --git a/tests/data/cli/compare/virt-xml-remove-spice-graphics.xml b/tests/data/cli/compare/virt-xml-remove-spice-graphics.xml
+new file mode 100644
+index 000000000..ed9f2a584
+--- /dev/null
++++ b/tests/data/cli/compare/virt-xml-remove-spice-graphics.xml
+@@ -0,0 +1,14 @@
++     <channel type="spicevmc">
++       <target type="virtio" name="com.redhat.spice.0"/>
++     </channel>
++-    <graphics type="spice" autoport="yes">
++-      <listen type="address"/>
++-      <image compression="off"/>
++-      <gl enable="no"/>
++-    </graphics>
++     <audio id="1" type="spice"/>
++     <video>
++       <model type="qxl" ram="65536" vram="65536" vgamem="16384" heads="1" primary="yes"/>
++
++Domain 'test-spice' defined successfully.
++Changes will take effect after the domain is fully powered off.
+diff --git a/tests/data/testdriver/testsuite.xml b/tests/data/testdriver/testsuite.xml
+index a073cbce5..d6cace017 100644
+--- a/tests/data/testdriver/testsuite.xml
++++ b/tests/data/testdriver/testsuite.xml
+@@ -96,6 +96,47 @@
+ </domain>
+ 
+ 
++<domain type='test'>
++  <name>test-spice</name>
++  <uuid>12345678-1234-FFFF-1234-12345678ABCD</uuid>
++  <memory unit='KiB'>1048576</memory>
++  <currentMemory unit='KiB'>1048576</currentMemory>
++  <vcpu placement='static'>1</vcpu>
++  <os>
++    <type arch='x86_64' machine='q35'>hvm</type>
++    <boot dev='hd'/>
++  </os>
++  <features>
++    <acpi/>
++    <apic/>
++    <vmport state='off'/>
++    <smm state='on'/>
++  </features>
++  <clock offset='utc'/>
++  <on_poweroff>destroy</on_poweroff>
++  <on_reboot>restart</on_reboot>
++  <on_crash>destroy</on_crash>
++  <devices>
++    <emulator>/usr/bin/qemu-system-x86_64</emulator>
++    <controller type='usb' index='0' model='qemu-xhci' ports='15'/>
++    <channel type='spicevmc'>
++      <target type='virtio' name='com.redhat.spice.0'/>
++    </channel>
++    <graphics type='spice' autoport='yes' connected='fail'>
++      <listen type='address'/>
++      <image compression='off'/>
++      <gl enable='no'/>
++    </graphics>
++    <audio id='1' type='spice'/>
++    <video>
++      <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
++    </video>
++    <redirdev bus='usb' type='spicevmc'/>
++    <redirdev bus='usb' type='spicevmc'/>
++  </devices>
++</domain>
++
++
+ <domain type='test'>
+    <name>test-for-virtxml</name>
+   <metadata>
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index 532f456ae..04386f63b 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -1318,6 +1318,10 @@ c.add_compare("--remove-device --memballoon all", "remove-memballoon")
+ c.add_compare("--add-device --hostdev mdev_8e37ee90_2b51_45e3_9b25_bf8283c03110", "add-hostdev-mdev")
+ c.add_compare("--remove-device --hostdev mdev_b1ae8bf6_38b0_4c81_9d44_78ce3f520496", "remove-hostdev-mdev")
+ 
++c = vixml.add_category("edit/remove spice graphics", "test-spice --print-diff --define")
++c.add_compare("--edit --graphics type=vnc", "change-spice-to-vnc")
++c.add_compare("--remove-device --graphics type=spice", "remove-spice-graphics")
++
+ c = vixml.add_category("add/rm devices and start", "test-state-shutoff --print-diff --start")
+ c.add_invalid("--add-device --pm suspend_to_disk=yes")  # --add-device without a device
+ c.add_invalid("--remove-device --clock utc")  # --remove-device without a dev
+-- 
+2.48.1

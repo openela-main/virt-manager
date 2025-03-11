@@ -1,0 +1,30 @@
+From 4c4c84de0505ede1fb10b517fa359b8307300d43 Mon Sep 17 00:00:00 2001
+Message-ID: <4c4c84de0505ede1fb10b517fa359b8307300d43.1737975657.git.phrdina@redhat.com>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Mon, 12 Feb 2024 10:40:19 +0100
+Subject: [PATCH] virtinst: fix compare for audio devices
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 2a0aa2d56bfdaf3612bf5182659486fc4dffbb7b)
+
+https://issues.redhat.com/browse/RHEL-17435
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtinst/devices/device.py | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/virtinst/devices/device.py b/virtinst/devices/device.py
+index 132107efb..e46437144 100644
+--- a/virtinst/devices/device.py
++++ b/virtinst/devices/device.py
+@@ -131,6 +131,7 @@ class Device(XMLBuilder):
+             "interface":     ["macaddr", "xmlindex"],
+             "input":         ["bus", "type", "xmlindex"],
+             "sound":         ["model", "xmlindex"],
++            "audio":         ["type", "id"],
+             "video":         ["model", "xmlindex"],
+             "watchdog":      ["model", "xmlindex"],
+             "hostdev":       ["type", "managed", "xmlindex",
+-- 
+2.48.1

@@ -8,7 +8,7 @@
 
 Name: virt-manager
 Version: 3.2.0
-Release: 4%{?dist}%{?extra_release}
+Release: 4.1%{?dist}%{?extra_release}
 %global verrel %{version}-%{release}
 
 Summary: Desktop tool for managing virtual machines via libvirt
@@ -28,6 +28,15 @@ Patch7: virt-manager-Handle-new-nodedev-name-for-mediated-devices.patch
 Patch8: virt-manager-addstorage-Don-t-pass-None-to-widget.set_active.patch
 Patch9: virt-manager-cli-add-ioapic.driver-to-features.patch
 Patch10: virt-manager-console-fix-error-with-old-pygobject.patch
+Patch11: virt-manager-cli-Add-basic-audio-type-XXX-id-Y-support.patch
+Patch12: virt-manager-virtinst-unify-detection-of-duplicate-console-when-removing-device.patch
+Patch13: virt-manager-virtinst-fix-compare-for-audio-devices.patch
+Patch14: virt-manager-testsuite-add-test-spice-vm-definition.patch
+Patch15: virt-manager-virtinst-remove-spice-devices-when-removing-last-spice-graphics.patch
+Patch16: virt-manager-guest-add-convert_to_vnc.patch
+Patch17: virt-manager-guest-remove-spiceport-devices-when-spice-is-removed.patch
+Patch18: virt-manager-guest-convert_to_vnc-convert-video-device.patch
+Patch19: virt-manager-virt-xml-Add-edit-convert-to-vnc.patch
 
 
 Requires: virt-manager-common = %{verrel}
@@ -197,6 +206,17 @@ done
 
 
 %changelog
+* Mon Jan 27 2025 Pavel Hrdina <phrdina@redhat.com> - 3.2.0-4.1.el8_10
+- cli: Add basic --audio type=XXX,id=Y support (RHEL-17435)
+- virtinst: unify detection of duplicate console when removing device (RHEL-17435)
+- virtinst: fix compare for audio devices (RHEL-17435)
+- testsuite: add test-spice vm definition (RHEL-17435)
+- virtinst: remove spice devices when removing last spice graphics (RHEL-17435)
+- guest: add convert_to_vnc() (RHEL-17435)
+- guest: remove spiceport devices when spice is removed (RHEL-17435)
+- guest: convert_to_vnc: convert video device (RHEL-17435)
+- virt-xml: Add `--edit --convert-to-vnc` (RHEL-17435)
+
 * Thu Mar 10 2022 Jonathon Jongsma <jjongsma@redhat.com> - 3.2.0-4
 - console: fix error with old pygobject (rhbz#2026987)
 
