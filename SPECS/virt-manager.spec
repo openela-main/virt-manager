@@ -7,26 +7,19 @@
 # End local config
 
 Name: virt-manager
-Version: 4.1.0
-Release: 5%{?dist}%{?extra_release}
+Version: 5.0.0
+Release: 1%{?dist}%{?extra_release}
 %global verrel %{version}-%{release}
 
 Summary: Desktop tool for managing virtual machines via libvirt
-License: GPLv2+
+License: GPL-2.0-or-later
 BuildArch: noarch
 URL: https://virt-manager.org/
-Source0: https://virt-manager.org/download/sources/%{name}/%{name}-%{version}.tar.gz
+Source0: https://releases.pagure.org/%{name}/%{name}-%{version}.tar.xz
 Source1: symlinks
 
-Patch1: virt-manager-cloner-Sync-uuid-and-sysinfo-system-uuid.patch
-Patch2: virt-manager-virtinstall-fix-regression-with-boot-and-no-install-method.patch
-Patch3: virt-manager-progress-Fix-showing-correct-final-total.patch
-Patch4: virt-manager-virtinstall-Fix-the-allocating-disk-size-printed-by-the-progress-bar.patch
-Patch5: virt-manager-virtinstall-Hide-total_size-in-the-progress-bar-if-it-doesn-t-need.patch
-Patch6: virt-manager-virt-install-Recommend-boot-uefi.patch
-Patch7: virt-manager-virt-install-Document-Secure-Boot-setups.patch
-Patch8: virt-manager-tests-Add-more-cloud-init-and-TPM-test-cases.patch
-Patch9: virt-manager-installer-drop-default-TPM-for-cloud-init-install-ph.patch
+Patch1: virt-manager-Disable-spice.patch
+Patch2: virt-manager-spec-update-link-to-virt-manager-sources.patch
 
 
 Requires: virt-manager-common = %{verrel}
@@ -34,9 +27,6 @@ Requires: python3-gobject >= 3.31.3
 Requires: gtk3 >= 3.22.0
 Requires: libvirt-glib >= 0.0.9
 Requires: gtk-vnc2
-
-# We can work with gtksourceview 3 or gtksourceview4, pick the latest one
-Requires: gtksourceview4
 
 # virt-manager is one of those apps that people will often install onto
 # a headless machine for use over SSH. This means the virt-manager dep
@@ -52,6 +42,10 @@ Requires: dconf
 # no ambiguity.
 Requires: vte291
 
+# We can use GtkTextView, gtksourceview 3 or gtksourceview4, recommend
+# the latest one but don't make it a hard requirement
+Recommends: gtksourceview4
+
 # Weak dependencies for the common virt-manager usecase
 Recommends: (libvirt-daemon-kvm or libvirt-daemon-qemu)
 Recommends: libvirt-daemon-config-network
@@ -63,7 +57,7 @@ BuildRequires: git
 BuildRequires: gettext
 BuildRequires: python3-devel
 BuildRequires: python3-docutils
-BuildRequires: python3-setuptools
+BuildRequires: meson
 
 
 %description
@@ -125,25 +119,25 @@ git add .
 git commit -q -a --allow-empty --author 'rpm-build <rpm-build>' -m symlinks
 
 
-git config gc.auto 0
-
 %autopatch
 
 
 %build
-%if %{default_hvs}
-%global _default_hvs --default-hvs %{default_hvs}
+%if 0%{?rhel}
+%global _default_graphics -Ddefault-graphics=vnc
 %endif
 
-./setup.py configure \
-    %{?_default_hvs} \
-    --default-graphics=vnc
-
+%meson \
+    -Ddefault-hvs=%{default_hvs} \
+    %{?_default_graphics} \
+    -Dupdate-icon-cache=false \
+    -Dcompile-schemas=false \
+    -Dtests=disabled
+%meson_build
 
 %install
-./setup.py \
-    --no-update-icon-cache --no-compile-schemas \
-    install -O1 --root=%{buildroot}
+%meson_install
+
 %find_lang %{name}
 
 %if 0%{?py_byte_compile:1}
@@ -192,6 +186,12 @@ git config gc.auto 0
 
 
 %changelog
+* Mon Dec  2 2024 Pavel Hrdina <phrdina@redhat.com> - 5.0.0-1
+- Rebased to virt-manager-5.0.0 (RHEL-34607)
+- The rebase also fixes the following bugs:
+    RHEL-7124, RHEL-741, RHEL-10468, RHEL-17436, RHEL-1126
+    RHEL-62959, RHEL-65264
+
 * Mon Oct 02 2023 Jonathon Jongsma <jjongsma@redhat.com> - 4.1.0-5
 - On aarch64 the vm will shut off immediately shut off when using virt-install --cloud-init (RHEL-1705)
 
