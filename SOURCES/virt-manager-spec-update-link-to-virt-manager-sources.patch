@@ -1,0 +1,28 @@
+From d399e1504f45aa02eb70347a038c1410890db9c4 Mon Sep 17 00:00:00 2001
+Message-ID: <d399e1504f45aa02eb70347a038c1410890db9c4.1733152262.git.phrdina@redhat.com>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Fri, 29 Nov 2024 20:59:27 +0100
+Subject: [PATCH] spec: update link to virt-manager sources
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit b74730ebb6556dcbcc3b4e4993c79304c309cab4)
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virt-manager.spec.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/virt-manager.spec.in b/virt-manager.spec.in
+index 353491111..0ffdf577c 100644
+--- a/virt-manager.spec.in
++++ b/virt-manager.spec.in
+@@ -15,7 +15,7 @@ Summary: Desktop tool for managing virtual machines via libvirt
+ License: GPL-2.0-or-later
+ BuildArch: noarch
+ URL: https://virt-manager.org/
+-Source0: https://virt-manager.org/download/sources/%{name}/%{name}-%{version}.tar.xz
++Source0: https://releases.pagure.org/%{name}/%{name}-%{version}.tar.xz
+ 
+ 
+ Requires: virt-manager-common = %{verrel}
+-- 
+2.47.0

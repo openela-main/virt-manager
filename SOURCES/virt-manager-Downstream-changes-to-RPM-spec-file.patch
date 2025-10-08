@@ -1,0 +1,41 @@
+From 35127dbaac817e9d78aaa6a97021eb9b18d63b12 Mon Sep 17 00:00:00 2001
+Message-ID: <35127dbaac817e9d78aaa6a97021eb9b18d63b12.1733152262.git.phrdina@redhat.com>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Fri, 29 Nov 2024 20:48:04 +0100
+Subject: [PATCH] Downstream changes to RPM spec file
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virt-manager.spec.in | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/virt-manager.spec.in b/virt-manager.spec.in
+index c22ed32b5..353491111 100644
+--- a/virt-manager.spec.in
++++ b/virt-manager.spec.in
+@@ -23,7 +23,9 @@ Requires: python3-gobject >= 3.31.3
+ Requires: gtk3 >= 3.22.0
+ Requires: libvirt-glib >= 0.0.9
+ Requires: gtk-vnc2
++%if 0%{?fedora}
+ Requires: spice-gtk3
++%endif
+ 
+ # virt-manager is one of those apps that people will often install onto
+ # a headless machine for use over SSH. This means the virt-manager dep
+@@ -104,8 +106,13 @@ machine).
+ 
+ 
+ %build
++%if 0%{?rhel}
++%global _default_graphics -Ddefault-graphics=vnc
++%endif
++
+ %meson \
+     -Ddefault-hvs=%{default_hvs} \
++    %{?_default_graphics} \
+     -Dupdate-icon-cache=false \
+     -Dcompile-schemas=false \
+     -Dtests=disabled
+-- 
+2.47.0
