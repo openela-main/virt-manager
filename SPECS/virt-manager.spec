@@ -1,13 +1,14 @@
 # -*- rpm-spec -*-
 
-%global with_guestfs               0
-%global default_hvs                "qemu,xen,lxc"
+%global default_hvs         "qemu,xen,lxc"
+%global have_spice          %{defined fedora}
+
 
 
 # End local config
 
 Name: virt-manager
-Version: 5.0.0
+Version: 5.1.0
 Release: 1%{?dist}%{?extra_release}
 %global verrel %{version}-%{release}
 
@@ -18,8 +19,7 @@ URL: https://virt-manager.org/
 Source0: https://releases.pagure.org/%{name}/%{name}-%{version}.tar.xz
 Source1: symlinks
 
-Patch1: virt-manager-Disable-spice.patch
-Patch2: virt-manager-spec-update-link-to-virt-manager-sources.patch
+Patch1: virt-manager-virtinst-cloudinit-include-empty-meta-data-file.patch
 
 
 Requires: virt-manager-common = %{verrel}
@@ -27,6 +27,9 @@ Requires: python3-gobject >= 3.31.3
 Requires: gtk3 >= 3.22.0
 Requires: libvirt-glib >= 0.0.9
 Requires: gtk-vnc2
+%if %{have_spice}
+Requires: spice-gtk3
+%endif
 
 # virt-manager is one of those apps that people will often install onto
 # a headless machine for use over SSH. This means the virt-manager dep
@@ -34,7 +37,12 @@ Requires: gtk-vnc2
 # Unfortunately nothing in our chain has an explicit dep on some kind
 # of usable gsettings backend, so we explicitly depend on dconf so that
 # user settings actually persist across app runs.
+#
+# That said, we skip this dep for flatpak, where dconf isn't used in
+# the runtime. gsettings defaults to ini file in that case
+%if ! 0%{?flatpak}
 Requires: dconf
+%endif
 
 # The vte291 package is actually the latest vte with API version 2.91, while
 # the vte3 package is effectively a compat package with API version 2.90.
@@ -123,7 +131,7 @@ git commit -q -a --allow-empty --author 'rpm-build <rpm-build>' -m symlinks
 
 
 %build
-%if 0%{?rhel}
+%if ! %{have_spice}
 %global _default_graphics -Ddefault-graphics=vnc
 %endif
 
@@ -152,7 +160,7 @@ git commit -q -a --allow-empty --author 'rpm-build <rpm-build>' -m symlinks
 
 %{_mandir}/man1/%{name}.1*
 
-%{_datadir}/%{name}/ui/*.ui
+%{_datadir}/%{name}/ui
 %{_datadir}/%{name}/virtManager
 
 %{_datadir}/%{name}/icons
@@ -186,6 +194,11 @@ git commit -q -a --allow-empty --author 'rpm-build <rpm-build>' -m symlinks
 
 
 %changelog
+* Sat Nov 15 2025 Pavel Hrdina <phrdina@redhat.com> - 5.1.0-1
+- Rebased to virt-manager-5.1.0 (RHEL-119340)
+- The rebase also fixes the following bugs:
+    RHEL-105819
+
 * Mon Dec  2 2024 Pavel Hrdina <phrdina@redhat.com> - 5.0.0-1
 - Rebased to virt-manager-5.0.0 (RHEL-34607)
 - The rebase also fixes the following bugs:
