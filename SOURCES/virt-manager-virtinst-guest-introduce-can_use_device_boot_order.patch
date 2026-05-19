@@ -1,0 +1,48 @@
+From e9265288cb16fd35c81267d4abc635f67af281d7 Mon Sep 17 00:00:00 2001
+Message-ID: <e9265288cb16fd35c81267d4abc635f67af281d7.1764872379.git.phrdina@redhat.com>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 2 Dec 2025 21:39:14 +0100
+Subject: [PATCH] virtinst: guest: introduce can_use_device_boot_order
+
+From: Pavel Hrdina <phrdina@redhat.com>
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 3a25792d90d53ad81bfb4835a146d047a39ef1e5)
+
+https://issues.redhat.com/browse/RHEL-71842
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtManager/object/domain.py | 2 +-
+ virtinst/guest.py            | 3 +++
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/virtManager/object/domain.py b/virtManager/object/domain.py
+index 6fc4f45ce..b8273ba7d 100644
+--- a/virtManager/object/domain.py
++++ b/virtManager/object/domain.py
+@@ -1396,7 +1396,7 @@ class vmmDomain(vmmLibvirtObject):
+ 
+     def can_use_device_boot_order(self):
+         # Return 'True' if guest can use new style boot device ordering
+-        return self.conn.support.conn_device_boot_order()
++        return self.get_xmlobj().can_use_device_boot_order()
+ 
+     def get_bootable_devices(self):
+         # redirdev can also be marked bootable, but it should be rarely
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index a9fbecaec..d13049be0 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -475,6 +475,9 @@ class Guest(XMLBuilder):
+                 ret.append(floppy.get_xml_id())
+         return ret
+ 
++    def can_use_device_boot_order(self):
++        return self.conn.support.conn_device_boot_order()
++
+     def _get_device_boot_order(self):
+         order = []
+         for dev in self.get_bootable_devices():
+-- 
+2.52.0

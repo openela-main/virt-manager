@@ -1,14 +1,15 @@
 # -*- rpm-spec -*-
 
-%global with_guestfs               0
-%global default_hvs                "qemu,xen,lxc"
+%global default_hvs         "qemu,xen,lxc"
+%global have_spice          %{defined fedora}
+
 
 
 # End local config
 
 Name: virt-manager
-Version: 5.0.0
-Release: 1%{?dist}%{?extra_release}
+Version: 5.1.0
+Release: 2%{?dist}%{?extra_release}
 %global verrel %{version}-%{release}
 
 Summary: Desktop tool for managing virtual machines via libvirt
@@ -18,8 +19,13 @@ URL: https://virt-manager.org/
 Source0: https://releases.pagure.org/%{name}/%{name}-%{version}.tar.xz
 Source1: symlinks
 
-Patch1: virt-manager-Downstream-changes-to-RPM-spec-file.patch
-Patch2: virt-manager-spec-update-link-to-virt-manager-sources.patch
+Patch1: virt-manager-virtinst-cloudinit-include-empty-meta-data-file.patch
+Patch2: virt-manager-virtinst-interface-add-support-for-backend.hostname-and-backend.fqdn.patch
+Patch3: virt-manager-maint-use-constants-instead-of-strings-for-boot-devices.patch
+Patch4: virt-manager-virtinst-rework-get_boot_order.patch
+Patch5: virt-manager-virtinst-guest-introduce-can_use_device_boot_order.patch
+Patch6: virt-manager-virtinst-remove-legacy-attribute-from-set_boot_order-get_boot_order.patch
+Patch7: virt-manager-installer-add-support-to-use-device-boot-order.patch
 
 
 Requires: virt-manager-common = %{verrel}
@@ -27,7 +33,7 @@ Requires: python3-gobject >= 3.31.3
 Requires: gtk3 >= 3.22.0
 Requires: libvirt-glib >= 0.0.9
 Requires: gtk-vnc2
-%if 0%{?fedora}
+%if %{have_spice}
 Requires: spice-gtk3
 %endif
 
@@ -37,7 +43,12 @@ Requires: spice-gtk3
 # Unfortunately nothing in our chain has an explicit dep on some kind
 # of usable gsettings backend, so we explicitly depend on dconf so that
 # user settings actually persist across app runs.
+#
+# That said, we skip this dep for flatpak, where dconf isn't used in
+# the runtime. gsettings defaults to ini file in that case
+%if ! 0%{?flatpak}
 Requires: dconf
+%endif
 
 # The vte291 package is actually the latest vte with API version 2.91, while
 # the vte3 package is effectively a compat package with API version 2.90.
@@ -126,7 +137,7 @@ git commit -q -a --allow-empty --author 'rpm-build <rpm-build>' -m symlinks
 
 
 %build
-%if 0%{?rhel}
+%if ! %{have_spice}
 %global _default_graphics -Ddefault-graphics=vnc
 %endif
 
@@ -155,7 +166,7 @@ git commit -q -a --allow-empty --author 'rpm-build <rpm-build>' -m symlinks
 
 %{_mandir}/man1/%{name}.1*
 
-%{_datadir}/%{name}/ui/*.ui
+%{_datadir}/%{name}/ui
 %{_datadir}/%{name}/virtManager
 
 %{_datadir}/%{name}/icons
@@ -189,6 +200,19 @@ git commit -q -a --allow-empty --author 'rpm-build <rpm-build>' -m symlinks
 
 
 %changelog
+* Thu Dec  4 2025 Pavel Hrdina <phrdina@redhat.com> - 5.1.0-2
+- virtinst: interface: add support for backend.hostname and backend.fqdn (RHEL-95370)
+- maint: use constants instead of strings for boot devices (RHEL-71842)
+- virtinst: rework get_boot_order (RHEL-71842)
+- virtinst: guest: introduce can_use_device_boot_order (RHEL-71842)
+- virtinst: remove legacy attribute from set_boot_order/get_boot_order (RHEL-71842)
+- installer: add support to use device boot order (RHEL-71842)
+
+* Sat Nov 15 2025 Pavel Hrdina <phrdina@redhat.com> - 5.1.0-1
+- Rebased to virt-manager-5.1.0 (RHEL-119228)
+- The rebase also fixes the following bugs:
+    RHEL-105818
+
 * Mon Dec  2 2024 Pavel Hrdina <phrdina@redhat.com> - 5.0.0-1
 - Rebased to virt-manager-5.0.0 (RHEL-46783)
 - The rebase also fixes the following bugs:
